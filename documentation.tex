@@ -1,0 +1,368 @@
+\documentclass[12pt,twoside]{report}
+
+% some definitions for the title page
+\newcommand{\reporttitle}{asdfasdf}
+\newcommand{\reportauthor}{Your name}
+\newcommand{\supervisor}{Name of supervisor}
+\newcommand{\reporttype}{Type of Report/Thesis}
+\newcommand{\degreetype}{Type of degree} 
+
+% load some definitions and default packages
+\input{includes}
+
+\usepackage{minted}
+
+% load some macros
+\input{notation}
+
+% load title page
+\begin{document}
+\input{titlepage}
+
+
+% page numbering etc.
+\pagenumbering{roman}
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\setcounter{page}{1}
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+Your abstract.
+\end{abstract}
+
+\cleardoublepage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Acknowledgments}
+Comment this out if not needed.
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%--- table of contents
+\fancyhead[RE,LO]{\sffamily {Table of Contents}}
+\tableofcontents 
+
+
+\clearpage{\pagestyle{empty}\cleardoublepage}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\fancyhead[LE,RO]{\slshape \rightmark}
+\fancyhead[LO,RE]{\slshape \leftmark}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+
+\begin{figure}[tb]
+\centering
+\includegraphics[width = 0.4\hsize]{./figures/imperial}
+\caption{Imperial College Logo. It's nice blue, and the font is quite stylish. But you can choose a different one if you don't like it.}
+\label{fig:logo}
+\end{figure}
+
+Figure~\ref{fig:logo} is an example of a figure. 
+
+Monads are an algebraic structure which consists of a type constructor that returns the type of a computation given the type of its result, a function that performs two computations one after the other, making the result of the first available to the second and a function that takes a value and returns a computation that will produce that value when executed. Arrows are a typeclass used to describe computations in a pure and declarative fashion where their use does not limit steps to having one and only one input. Applicatives take a function with non-functorial arguments and use it to operate on several values that are in functor contexts.
+
+An abstract machine is a computer system model designed to allow for precise and in-depth analysis of how the computer system operates. It is typically made up of input, output, and the operation set. Abstract machines can be deterministic or non-deterministic. A deterministic machine is really a system in which a specific starting state or condition always produces the same results. However, a non-deterministic one can produce different results based on the same input on different executions. Chomsky Hierarchy can represent the class of languages that are accepted by different abstract machines. Chomsky's Hierarchy classifies grammar in four types: Type 0 is known as unrestricted grammar, Type 1 is known as context-sensitive grammar, Type 2 is known as context-free grammar, and Type 3 is known as Regular Grammar.
+
+Each of the above notions of computation has various properties that can be more advantageous than others which can potentiate the parsing of grammars.
+% + https://www.cambridge.org/core/services/aop-cambridge-core/content/view/70019FC0F2384270E9F41B9719042528/S0956796817000132a.pdf/div-class-title-notions-of-computation-as-monoids-a-href-fn01-ref-type-fn-a-div.pdf intro din asta
+
+This paper aims to:
+\begin{itemize}
+    \item Describe applicatives, arrows and monads and how they can be seen as monoids.
+    \item Provide relations between the three notions of computation and abstract machines (deterministic and non-deterministic).
+    \item Analyse how the languages described by the Chomsky Hierarchy can be recognized by abstract machines: Type 0 by Turing machines, Type 1 by Linear Bound Automata, Type 2 by Push Down Automata, and Type 3 by Finite Automata.
+\end{itemize}	
+This way, the goal is to produce a comprehensive explanation on how to choose between applicatives, arrows and monads depending on the grammar defined by the Chomsky Hierarchy.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Background}
+In this chapter, the groundwork for the rest of the project is set by providing introductions to relevant background theory and current work. To begin with, we provide an introduction to monads, applicatives, and arrows, discussing relevant properties. Then, we have a discussion on the Chomsky's hierarchy. Finally, a discussion of comparable works and the reason for this dissertation.
+
+\section{Monads}
+\subsection{The Monad type class}
+\begin{minted}{haskell}
+class Monad m where
+return :: a -> m a
+(>>=) :: m a -> (a -> m b) -> m b
+(>>) :: m a -> m b -> m b
+fail :: String -> m a
+\end{minted}
+
+\subsection{The monad laws}
+\begin{minted}{haskell}
+m >>= return = m                    -- right identity
+return x >> f = f x                 -- left identity
+(m >>= f) >>= g >>=(x -> f x >>= g) -- associativity
+\end{minted}
+
+\subsection{Free Monad}
+Given a forgetful functor whose domain is the category of Monads and co-domain is the category of Endofunctors, a free monads is the construction which is left adjoint with the given functor. The forgetful functor takes a Monad, forgets its pointed (pure) and monadic parts (flatMap), and keeps the functor part (map). Meanwhile, the free monad takes a functor and adds the pointed (pure) and monadic parts (flatMap).
+\begin{minted}{haskell}
+data Free f a
+    = Free ( f (Free f a))
+    | Pure a
+
+instance Functor f => Monad (Free f) where
+    return a = Pure a
+    Pure a >>= f = f a
+    Free x >>= f = Free ((>>= f) <$> x)
+\end{minted}
+
+\section{Applicatives}
+\subsection{The Applicative type class}
+\begin{minted}{haskell}
+class (Functor f) => Applicative f where
+    pure  :: a -> f a
+    (<*>) :: f (a -> b) -> f a -> f b
+\end{minted}
+
+\subsection{The applicative laws}
+\begin{minted}{haskell}
+pure id <*> x = x                            -- identity
+pure f <*> pure a = pure (f a)               -- homomorphism
+x <*> pure a = pure ($ a) <*> x              -- interchange
+pure (.) <*> x <*> y <*> z = x <*> (y <*> z) -- composition
+fmap f x = pure f <*> x                      -- fmap
+\end{minted}
+
+\subsection{Free Applicative}
+???
+\begin{minted}{haskell}
+instance Functor f => Functor (Free f) where
+  fmap f (Pure a) = Pure (f a)
+  fmap f (Free x) = Free (fmap f <$> x)
+
+instance Functor f => Applicative (Free f) where
+  pure = Pure
+  Pure f <*> Pure a = Pure (f a)
+  Pure f <*> Free x = Free (fmap f <$> x)
+  Free x <*> my     = Free ((<*> my) <$> x)
+\end{minted}
+\section{Arrows}
+\subsection{The Arrow type class}
+\begin{minted}{haskell}
+class Category y => Arrow y where
+    arr    :: (a -> b) -> y a b                 -- converts function to arrow
+    first  :: y a b -> y (a, c) (b, c)          -- maps over first component
+
+    second :: y a b -> y (c, a) (c, b)          -- maps over second component
+    (***)  :: y a c -> y b d -> y (a, b) (c, d) -- first and second combined
+    (&&&)  :: y a b -> y a c -> y a (b, c)      -- (***) on a duplicated value
+\end{minted}
+
+\subsection{The arrow laws}
+\begin{minted}{haskell}
+arr id = id
+arr (f >>> g) = arr f >>> arr g
+first (arr f) = arr (first f)
+first (f >> g) = first f >>> first g
+first f >>> arr fst = arr fst >>> f
+first f >>> arr (id *** g) = arr (id *** g) >> first f
+first (first f) >>> assoc = arr assoc >>> first f
+    where assoc ((a,b),c) = (a,(b,c))
+
+sau
+
+id >>> f = f                      -- identity
+(f >>> g) >>> h = f >>> (g >>> h) -- composition
+f >>> (g >>> h) = (f >>> g) >>>h  -- associativity
+\end{minted}
+
+\subsection{Free Arrow}
+???
+\begin{minted}{haskell}
+data FreeArrow f a b = PureArrow b | FreeArrow (f (a, FreeArrow f a b))
+    deriving (Functor)
+
+instance Arrow (FreeArrow f) where
+    arr f = PureArrow (f ())
+    first (PureArrow b) = PureArrow (b, ())
+    first (FreeArrow fa) = FreeArrow (fmap (first) fa)
+    second (PureArrow b) = PureArrow ((), b)
+    second (FreeArrow fa) = FreeArrow (fmap (second) fa)
+    PureArrow b >>> PureArrow c = PureArrow c
+    FreeArrow fa >>> PureArrow c = FreeArrow (fmap (>>> PureArrow c) fa)
+    PureArrow b >>> FreeArrow fb = FreeArrow (fmap (PureArrow b >>>) fb)
+    FreeArrow fa >>> FreeArrow fb = FreeArrow (fmap (>>> FreeArrow fb) fa)
+\end{minted}
+\section{Chomsky's Hierarchy}
+The Chomsky hierarchy classifies grammars into four types, each with increasing expressive power. \\\\
+It's important to note that the parsing strategy used is determined by the grammar and the needs of the parsing operation. For example, an Earley parser and an Applicative parser may both be able to parse a context-free grammar, but the Earley parser may be more powerful and capable of handling more complicated grammars, whilst the Applicative parser may be simpler and easier to grasp.
+\subsection{Type 0: Unrestricted Grammars}
+These grammars can generate any formal language and are also known as Turing-complete grammars. They are not commonly utilised for parsing in practise since they are extremely powerful and can be difficult to deal with. 
+\\\\
+An example of an unrestricted grammar is a grammar that can generate any recursive function.
+\subsection{Type 1: Context-Sensitive Grammars}
+These grammars are more powerful than regular grammars and can build languages that regular grammars cannot. Context-sensitive grammar parsers can be built using a variety of techniques, such as Earley parsers, Linear-bounded automata (LBA) parsers, or Arrow parsers.
+\\\\
+An example of a context-sensitive grammar is a grammar that generates all palindrome strings:\\
+$a \rightarrow a | b | c | ... | z$\\
+$S \rightarrow aS | a$
+\subsection{Type 2: Context-Free Grammars}
+These grammars are less powerful than context-sensitive grammars but more powerful than regular grammars. Context-free grammar parsers can be built using a variety of strategies, such as recursive descent parsers, Earley parsers, Push Down Automata (PDA) parsers, or Applicative parsers.
+\\\\
+An example of a context-free grammar is a grammar that generates all well-formed arithmetic expressions:\\
+$E \rightarrow E + T | T$\\
+$T \rightarrow T * F | F$\\
+$F \rightarrow (E) | id$
+\subsection{Type 3: Regular Grammars}
+These grammars are the weakest of the four, yet they can nevertheless generate a wide diversity of languages. Regular grammar parsers can be built using a variety of techniques, such as finite automata, regular expressions, or Applicative parsers.
+\\\\
+An example of a regular grammar is a grammar that generates all strings that contain an even number of a's:\\
+$S \rightarrow aSbS | bSaS | \epsilon$
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Relative Expressivity of the Grammars} 
+\section{!!!Applicative Parser for Context-Free Grammars}
+It is possible to implement parsers for context-sensitive grammars using applicative parsing techniques, but it can be more challenging than using more traditional parsing methods like recursive descent or Earley parsing. The key issue is that context-sensitive grammars can require maintaining state across multiple parser steps, which is difficult to do in an applicative style. Additionally, context-sensitive grammars often require backtracking, which is not supported directly by applicative parsers.
+
+There are some techniques that can be used to work around these limitations, such as using monadic or arrow-based parsing instead of applicative parsing, or using a combination of applicative and non-applicative techniques. However, these techniques can be more complex and harder to understand than traditional parsing methods.
+
+It is also worth noting that applicative parsers are typically used for context-free grammars, which have less expressive power than context-sensitive grammars. If you are trying to parse a context-sensitive grammar, it may be more appropriate to use a different parsing technique.
+
+\section{!!!Arrow parser - types of grammars}
+Arrow parsers, also known as parser arrows, are a type of parsing technique that can be used for a wide range of grammars. Arrow parsers are similar to monadic parsers in that they use a monadic interface to represent the parser's state, but they use arrows to represent the parser's computation, rather than monadic bind (>>=) and return.
+
+Arrow parsers are particularly useful when the grammar is highly expressive, such as context-sensitive grammars, because they allow you to express complex parsing operations in a composable way. They also allow you to build parsers for languages with ambiguous grammars, providing the ability to implement parsers with more powerful error recovery mechanisms.
+
+Arrow parsers are also used for parsing languages with a high degree of non-determinism, such as regular expressions, or languages with complex left-recursive grammars, that are difficult to parse with traditional recursive descent parsers.
+
+Overall, arrow parsers are a powerful tool for parsing a wide range of grammars and are particularly well-suited for parsing complex and expressive languages.
+
+\section{!!!Arrow parser - context sensitive grammars}
+Define the data type that represents the parser's state. This can include the input string, the current position in the input, and any additional information that is needed to parse the grammar, such as a stack or a symbol table.
+
+Define the arrow type that represents the parser's computation. In Haskell, this can be done using the Arrow type class, which provides a set of combinators for building arrow parsers.
+
+Define the grammar rules using the arrow combinators. This can be done using arrow combinators such as first, second, >>>, and &&& to compose the parsing steps for each rule.
+
+Implement error handling and backtracking. This can be done by using the arrow combinators try and finally to implement backtracking, and by using the ArrowChoice type class to implement error handling.
+
+Implement the main parsing function. This is the function that takes the input string and the initial parser state and returns the final parser state or an error message.
+
+Test the parser using sample inputs and outputs to ensure that it is working correctly.
+
+It's worth noting that implementing an arrow parser for a context-sensitive grammar can be difficult, particularly if you are not familiar with the intricacies of arrow parsing. There are also few libraries that can ease the process, like "parsers" package. It's also recommended to read and understand the theory behind arrow parsing and context-sensitive grammars before attempting to implement your own parser.
+
+\begin{minted}{haskell}
+import Control.Arrow
+import Text.Parser.Combinators
+import Text.Parser.Char
+
+-- Define the data type that represents the parser's state
+data ParserState = ParserState { input :: String, position :: Int }
+
+-- Define the arrow type that represents the parser's computation
+type Parser a b = Kleisli (Either String) a b
+
+-- Define the grammar rules
+-- the arrow combinator `char` is a parser that parse one specific character
+-- `runKleisli` is used to run the parser with a initial state
+charParser :: Char -> Parser ParserState Char
+charParser c = Kleisli (\s -> case input s of
+                             (x:xs) | x == c -> Right (x, s { input = xs, position = position s + 1 })
+                             _ -> Left ("Expected " ++ [c] ++ " but got " ++ input s))
+                             
+-- An example of how to run the parser
+runParser :: Parser ParserState a -> String -> Either String a
+runParser p s = runKleisli p (ParserState s 0)
+\end{minted}
+This is a simple example, it can parse only one specific character, it can be used as a starting point for your implementation and can be extended to parse more complex grammars.
+
+It's important to note that this is a simple example and it does not cover all aspects of a context-sensitive grammar parsing, such as error handling and backtracking, it also does not cover all the possibilities of the "parsers" package, it is just an example of how you can use it to implement an arrow parser.
+
+\section{!!!Monadic parsers -- types of grammars}
+Monadic parsers can be used to parse grammars from any level of the Chomsky hierarchy, including context-sensitive grammars.
+
+Monadic parsers are similar to applicative parsers in that they use a functional programming style, but they use monads to represent the parser's state, rather than applicative functors. Monads allow you to express complex parsing operations, such as backtracking and error handling, in a composable way. This makes them particularly well-suited for parsing context-sensitive grammars, which can require maintaining state across multiple parser steps and backtracking.
+
+For example, the monadic parser combinator library "Parsec" can parse context-free grammars, but it can also handle context-sensitive grammars with the same ease.
+
+It's worth noting that while monadic parsers can be used to parse grammars from any level of the Chomsky hierarchy, they may be more complex and harder to understand than other parsing techniques that are specifically designed for a particular level of the hierarchy. Additionally, while monads can be powerful tools for parsing complex grammars, they may not always be the best choice for a given task, depending on the requirements of the parsing task.
+
+\section{!!!Arrow, monad, applicative parsing}
+Arrow parsing is a technique for parsing formal languages that is based on the concept of arrows in category theory. The basic idea behind arrow parsing is to represent a parser as an arrow, which is a function that takes an input and produces an output, along with some additional information, such as a new state or an error message. Arrows can be composed to build more complex parsers, and they provide a way to express complex parsing operations, such as backtracking and error handling, in a composable way.
+Arrow parsing is a more powerful technique that can be used to parse context-sensitive grammars. Arrow parsers use a functional programming style and arrows to represent the parser's computation, which makes them particularly well-suited for expressing complex parsing operations, such as backtracking and error handling, in a composable way.
+
+In Haskell, the Arrow type class provides a set of combinators for building arrow parsers. The most basic combinator is the arr combinator, which creates an arrow from a pure function. Other combinators such as first, second, >>>, and &&& can be used to compose arrows to build more complex parsers.
+
+Monad parsing is a technique for parsing formal languages that is based on the concept of monads in functional programming. A monad is a way to represent computations that may have side effects, such as input/output, state, or exception handling. Monadic parsers are similar to arrow parsers in that they use a functional programming style, but they use monads to represent the parser's state, rather than arrows. Monadic parsers are particularly well-suited for parsing context-sensitive grammars, which can require maintaining state across multiple parser steps and backtracking. In Haskell, the Monad type class provides a set of combinators for building monadic parsers.
+Monad parsing is also a powerful technique that can be used to parse context-sensitive grammars and parsing languages with a high degree of non-determinism. Monadic parsers use a functional programming style and monads to represent the parser's state, which makes them particularly well-suited for parsing context-sensitive grammars, which can require maintaining state across multiple parser steps and backtracking.
+
+Applicative parsing is a technique for parsing formal languages that is based on the concept of applicative functors in functional programming. An applicative functor is a way to apply a function to a value inside a context, such as a list or a parser. Applicative parsers are similar to monadic parsers in that they use a functional programming style, but they use applicative functors to represent the parser's state, rather than monads. Applicative parsers are particularly well-suited for parsing context-free grammars, which have less expressive power than context-sensitive grammars. In Haskell, the Applicative type class provides a set of combinators for building applicative parsers.
+Applicative parsing is typically used for context-free grammars, which have less expressive power than context-sensitive grammars. Applicative parsers use a functional programming style and applicative functors to represent the parser's state, which makes them particularly well-suited for parsing context-free grammars, which have less expressive power than context-sensitive grammars.
+
+It's worth noting that while each of these parsing techniques can be used to parse a wide range of grammars, each has its own strengths and weaknesses. For example, arrow parsers are particularly well-suited for parsing context-sensitive grammars, monadic parsers are particularly well-suited for parsing context-sensitive grammars and parsing languages with a high degree of non-determinism, and applicative parsers are particularly well-suited for parsing context-free grammars.
+
+\section{!!!Simple vs free}
+Monads and free monads:
+
+A regular monad is a way to represent computations that may have side effects, such as input/output, state, or exception handling.
+A free monad is a way to represent computations as data, rather than functions. A free monad is a monad that is built using a functor, which defines the shape of the computations. It allows to represent the computations as a data structure and can be manipulated and transformed before being interpreted.
+Applicatives and free applicatives:
+
+A regular applicative functor is a way to apply a function to a value inside a context, such as a list or a parser.
+A free applicative is a way to represent computations as data, rather than functions. A free applicative is an applicative functor that is built using a functor, which defines the shape of the computations. It allows to represent the computations as a data structure and can be manipulated and transformed before being interpreted.
+Arrows and free arrows:
+
+A regular arrow is a mathematical concept that represents a computation that takes one input and produces one output, along with some additional information, such as a new state or an error message.
+A free arrow is a way to represent computations as data, rather than functions. A free arrow is an arrow that is built using a functor, which defines the shape of the computations. It allows to represent the computations as a data structure and can be manipulated and transformed before being interpreted.
+In summary, free monads, free applicatives, and free arrows are a way to represent computations as data, rather than functions, which allows for more flexibility and composability in terms of manipulation and transformation before being interpreted.
+
+\section{!!!as monoid + importance for parsing}
+A monoid is a mathematical structure that has an associative binary operation and an identity element. The operation is typically denoted as mappend or <> and the identity element as mempty.
+
+Monads, applicatives and arrows can be seen as monoids because they all have a way to combine values and a default value.
+
+For Monads, the operation is >>= (bind) which is used to chain together computations in the monadic context, and the identity element is return or pure which is used to lift a plain value into the monadic context.
+
+For Applicatives, the operation is <*> (apply) which is used to apply a function in the applicative context to a value in the same applicative context, and the identity element is pure which is used to lift a plain value into the applicative context.
+
+For Arrows, the operation is >>> (compose) which is used to combine two arrows into a new arrow by applying the first arrow to the input and then applying the second arrow to the output of the first arrow, and the identity element is arr id which is the arrow that applies the identity function to its input.
+In the context of parsing grammars, the ability to combine multiple parsers together using a monoid structure is important because it allows for more flexibility and composability in terms of building and manipulating parsers.
+
+For example, when using a monad to parse a grammar, the >>= (bind) operation allows to chain together multiple parsers in a way that is consistent with the way that the grammar is defined. This means that it is possible to build a parser for a complex grammar by combining simpler parsers together using the monadic structure.
+
+Similarly, when using an applicative to parse a grammar, the <*> (apply) operation allows to apply a function that consumes multiple parsers' outputs to their results in a consistent way, this way allows to handle multiple parsers output in a way that corresponds to the grammar definition.
+
+For arrow parsing, the >>> (compose) operation allows to combine multiple arrows together to build a more complex parser that can handle more complex grammars. The identity arrow arr id allows to handle the base case of the parser, when there's no manipulation required.
+
+In summary, the monoid structure allows to build parsers in a composable way, by combining simple parsers together, this way the parsing process can be more easily understood and handled by the programmer. Additionally, the monoid structure allows to reason about the parsing process in a mathematical way, and to prove properties of the parsers using monoid laws, making the code more robust and reliable.
+Composability: The monoid structure allows for the composition of simple parsers to create more complex parsers. This means that a complex grammar can be parsed by breaking it down into smaller, simpler grammars and then combining the results using the monoid operations. This makes it easier to understand and maintain the parser.
+
+Reusability: The monoid structure allows for the reuse of simple parsers in multiple places in the grammar. This means that a single parser can be used in multiple contexts and combined with other parsers in different ways. This reduces the amount of code that needs to be written and makes it easier to reason about the parser.
+
+Abstraction: The monoid structure allows for the abstraction of the parsing process. The monoid operations can be used to define a general parsing strategy, independent of the specific grammar. This allows for the creation of generic parsing libraries that can be used to parse multiple different grammars.
+
+Formal Verification: The monoid structure allows for the use of mathematical properties such as associativity and identity to reason about the behavior of the parser. This means that it is possible to prove properties about the parser using the monoid laws. This makes the code more robust and reliable, and it can help catch errors before the parser is run.
+
+Flexibility: The monoid structure allows for the manipulation of the parsing process in a consistent way, by using the monoid operations. This means that it is possible to change the parsing process by manipulating the monoid operations. This makes it easier to add new features and handle edge cases.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Project Plan} 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Evaluation Plan}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Ethical Issues}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Contribution}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Experimental Results}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Conclusion}
+
+
+%% bibliography
+\bibliographystyle{apa}
+
+
+\end{document}
