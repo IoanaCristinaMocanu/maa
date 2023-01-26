@@ -27,16 +27,25 @@ parseNew p = (eof <* guard' (p []))
     <|> foldr (<|>) parserZero
             (map (\c -> char c *> parseNew (p . (c:))) ['a'..'z'])
 
-f :: String -> Bool
-f s 
+sensitiveGrammar :: String -> Bool
+sensitiveGrammar s 
     | [('a', na), ('b', nb), ('c', nc)] <- map (head &&& length). group $ s
         = na == nb && nb == nc
-    | otherwise = False                 
+    | otherwise = False                     
 
-p = parseNew f
+sensitiveParser = parseNew sensitiveGrammar
+
+freeGrammar :: String -> Bool
+freeGrammar s 
+    | [('a', na), ('b', nb)] <- map (head &&& length). group $ s
+        = na == nb
+    | otherwise = False
+freeParser = parseNew freeGrammar    
 
 main = do
-    parseTest p "aaa"
-    parseTest p "abbc"
-    parseTest p "ABC"
-    parseTest p "aaabbbccc"
+    parseTest freeParser "aabb"
+    parseTest freeParser "abb"
+    parseTest sensitiveParser "aaa"
+    parseTest sensitiveParser "abbc"
+    parseTest sensitiveParser "ABC"
+    parseTest sensitiveParser "aaabbbccc"
